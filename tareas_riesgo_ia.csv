@@ -1,0 +1,56 @@
+LICENCIATURA,TAREA,PESO,RIESGO_TAREA
+Contaduría,Realizar la conciliación de cuentas bancarias,4,0.9
+Contaduría,Registrar asientos contables y transacciones,5,0.95
+Contaduría,Preparar declaraciones de impuestos estándar (IVA ISR),5,0.8
+Contaduría,Realizar auditorías de procesos básicos,3,0.7
+Contaduría,Analizar variaciones en presupuestos contra resultados reales,3,0.5
+Contaduría,Diseñar una estrategia de planificación fiscal compleja para una empresa,2,0.2
+Contaduría,Asesorar a la dirección sobre decisiones financieras estratégicas,2,0.1
+Derecho,Redactar un contrato de arrendamiento basado en una plantilla,4,0.85
+Derecho,Investigar jurisprudencia y leyes para un caso,5,0.6
+Derecho,Revisar y corregir grandes volúmenes de documentos legales (due diligence),4,0.75
+Derecho,Preparar los argumentos iniciales para un caso legal,4,0.3
+Derecho,Negociar los términos de un acuerdo extrajudicial,3,0.15
+Derecho,Representar a un cliente en un juicio oral,5,0.05
+Ingeniería en Software,Escribir código para funciones bien definidas y documentadas,5,0.6
+Ingeniería en Software,Depurar código y corregir bugs reportados por un sistema de tickets,5,0.7
+Ingeniería en Software,Crear pruebas unitarias y de integración para el código,4,0.8
+Ingeniería en Software,Documentar técnicamente el funcionamiento del código,3,0.85
+Ingeniería en Software,Diseñar la arquitectura de un nuevo sistema de software,3,0.2
+Ingeniería en Software,Reunirse con stakeholders para definir requerimientos técnicos,3,0.1
+Ingeniería en Software,Liderar un equipo de desarrollo y gestionar el proyecto,2,0.05
+Psicología,Transcribir sesiones de terapia grabadas,2,0.95
+Psicología,Aplicar y calificar pruebas psicométricas estandarizadas,4,0.7
+Psicología,Buscar y resumir artículos académicos para sustentar un caso,3,0.5
+Psicología,Conducir una sesión de terapia cognitivo-conductual,5,0.05
+Psicología,Realizar un diagnóstico clínico basado en entrevistas y observación,5,0.15
+Psicología,Diseñar un plan de intervención terapéutica personalizado,4,0.1
+Psicología,Facilitar una sesión de terapia de grupo,3,0.1
+Diseño Gráfico,Crear banners para redes sociales usando plantillas predefinidas,4,0.9
+Diseño Gráfico,Retocar fotografías de productos (ajustar brillo contraste color),3,0.8
+Diseño Gráfico,Vectorizar un logotipo o imagen existente,3,0.85
+Diseño Gráfico,Diseñar una identidad de marca original y su manual de estilo,5,0.25
+Diseño Gráfico,Crear un sistema de diseño (Design System) para una app o web,3,0.3
+Diseño Gráfico,Conceptualizar la dirección de arte para una campaña publicitaria,4,0.2
+Diseño Gráfico,Presentar defender y iterar propuestas creativas con un cliente,4,0.1
+Comunicación,Redactar comunicados de prensa sobre eventos o lanzamientos,4,0.75
+Comunicación,Monitorear menciones de una marca en redes sociales y la web,5,0.9
+Comunicación,Programar y publicar contenido en múltiples redes sociales,4,0.95
+Comunicación,Generar un reporte mensual de métricas de redes sociales,4,0.8
+Comunicación,Desarrollar una estrategia de comunicación de crisis,2,0.1
+Comunicación,Crear el concepto creativo y el storytelling para una campaña,3,0.2
+Comunicación,Establecer y mantener relaciones estratégicas con medios y periodistas,3,0.15
+Administración,Gestionar agendas programar reuniones y organizar viajes,3,0.9
+Administración,Elaborar y procesar reportes de gastos y facturas,4,0.85
+Administración,Supervisar la ejecución de tareas operativas diarias del equipo,5,0.4
+Administración,Analizar métricas de desempeño (KPIs) del departamento,4,0.5
+Administración,Desarrollar un nuevo plan de negocio o proyecto de expansión,3,0.25
+Administración,Resolver conflictos interpersonales y mediar en el equipo,3,0.1
+Administración,Negociar contratos y condiciones con proveedores clave,2,0.2
+Medicina,Transcribir y organizar historiales clínicos en el sistema digital,4,0.9
+Medicina,Analizar resultados de laboratorio y estudios de imagen para detectar anomalías,5,0.5
+Medicina,Realizar un diagnóstico diferencial basado en síntomas y análisis,5,0.3
+Medicina,Realizar un procedimiento quirúrgico o una intervención manual,5,0.05
+Medicina,Comunicar un diagnóstico complejo y un plan de tratamiento al paciente y su familia,5,0.05
+Medicina,Investigar y sintetizar estudios para tratamientos de casos raros,3,0.4
+Medicina,Realizar un examen físico completo a un paciente,5,0.1
