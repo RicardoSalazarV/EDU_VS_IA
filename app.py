@@ -12,332 +12,249 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. Carga y Caché de Datos ---
-@st.cache_data # <-- Usamos caché para no recargar datos en cada interacción
-def load_data():
-    """
-    Carga y genera datos simulados de matrícula y riesgo IA.
-    En un proyecto real, aquí leerías desde tu BBDD (MySQL/MongoDB) o CSV.
-    """
-    years = list(range(2005, 2025))
-    carreras = ['Derecho', 'Contaduría', 'Comunicación', 'Diseño Gráfico',
-                'Ing. Software', 'Medicina', 'Arquitectura', 'Psicología']
-    universidades = ['BUAP', 'UDLAP', 'UPAEP', 'Ibero Puebla', 'Tec Puebla']
-    areas = {'Derecho': 'Ciencias Sociales', 'Contaduría': 'Económico-Admin.',
-             'Comunicación': 'Ciencias Sociales', 'Diseño Gráfico': 'Artes y Humanidades',
-             'Ing. Software': 'Ingeniería y Tecnología', 'Medicina': 'Ciencias de la Salud',
-             'Arquitectura': 'Ingeniería y Tecnología', 'Psicología': 'Ciencias de la Salud'}
+# --- 2. LÓGICA INTERNA DE CLASIFICACIÓN (Basada en Palabras Clave) ---
+AREA_KEYWORDS = {
+    'Económico-Admin.': ['administración', 'contaduría', 'finanzas', 'economía', 'negocios', 'comercio', 'mercadotecnia', 'auditoría', 'empresas', 'aduanas', 'banca'],
+    'Ciencias Sociales': ['derecho', 'sociales', 'sociología', 'antropología', 'políticas', 'relaciones internacionales', 'historia', 'comunicación', 'periodismo', 'trabajo social'],
+    'Ingeniería y Tecnología': ['ingeniería', 'sistemas', 'software', 'computación', 'mecatrónica', 'electrónica', 'civil', 'industrial', 'tecnologías', 'mecánica', 'química', 'arquitectura', 'robótica', 'telecomunicaciones'],
+    'Ciencias de la Salud': ['medicina', 'enfermería', 'odontología', 'estomatología', 'psicología', 'nutrición', 'terapia', 'fisioterapia', 'farmacia', 'químico', 'gerontología'],
+    'Artes y Humanidades': ['diseño', 'arte', 'música', 'danza', 'filosofía', 'letras', 'literatura', 'humanidades', 'idiomas', 'lenguas', 'traducción', 'teatro', 'cinematografía', 'fotografía'],
+    'Educación': ['educación', 'pedagogía', 'enseñanza', 'docencia', 'psicopedagogía', 'procesos educativos', 'puericultura'],
+    'Ciencias Exactas y Naturales': ['física', 'matemáticas', 'biología', 'química', 'actuaria', 'geofísica', 'biotecnología', 'nanotecnología'],
+    'Ciencias Agropecuarias': ['agronomía', 'agroindustrial', 'zootecnista', 'forestal', 'rural', 'agrícola', 'veterinaria']
+}
 
-    data = []
+CAREER_KEYWORDS = {
+    'Administración': ['administración', 'empresas', 'negocios', 'gestión'], 'Contaduría': ['contaduría', 'contabilidad', 'auditoría', 'fiscal', 'finanzas'],
+    'Derecho': ['derecho', 'jurídica', 'abogado', 'leyes', 'penales', 'notario'], 'Comunicación': ['comunicación', 'periodismo', 'medios'],
+    'Psicología': ['psicología'], 'Arquitectura': ['arquitectura', 'urbanismo'], 'Medicina': ['medicina', 'médico', 'cirujano'], 'Enfermería': ['enfermería'],
+    'Ingeniería en Software': ['software', 'sistemas', 'computación', 'informática', 'tecnologías de información'], 'Ingeniería Civil': ['civil'],
+    'Ingeniería Industrial': ['industrial'], 'Ingeniería Mecatrónica': ['mecatrónica'], 'Ingeniería Mecánica': ['mecánica'], 'Ingeniería Química': ['química'],
+    'Diseño Gráfico': ['diseño gráfico', 'diseño y comunicación', 'diseño multimedia'], 'Gastronomía': ['gastronomía', 'culinarias', 'chef'],
+    'Turismo': ['turismo', 'hotelería', 'hospitalidad']
+}
 
-    np.random.seed(42)
+def classify_career(name):
+    if not isinstance(name, str): return 'Otra', 'Otras'
+    clean_name = name.lower().strip()
+    
+    found_career, found_area = name.capitalize(), 'Otras'
+    
+    for standard_name, keywords in CAREER_KEYWORDS.items():
+        if any(keyword in clean_name for keyword in keywords):
+            found_career = standard_name
+            break
 
-    base_matricula = {
-        'Derecho': 250, 'Contaduría': 230, 'Comunicación': 180, 'Diseño Gráfico': 150,
-        'Ing. Software': 100, 'Medicina': 200, 'Arquitectura': 160, 'Psicología': 170
+    for area, keywords in AREA_KEYWORDS.items():
+        if any(keyword in clean_name for keyword in keywords):
+            found_area = area
+            break
+            
+    return found_career, found_area
+
+# --- 3. Funciones de Carga y Procesamiento de Datos ---
+@st.cache_data
+def load_and_process_data(matricula_file, habilidades_file):
+    try:
+        df_matricula = pd.read_csv(matricula_file)
+        df_habilidades = pd.read_csv(habilidades_file)
+    except FileNotFoundError as e:
+        st.error(f"Error: No se pudo encontrar el archivo {e.filename}. Asegúrate de que los archivos están en la misma carpeta.")
+        return pd.DataFrame()
+
+    df_matricula.columns = [col.strip().capitalize() for col in df_matricula.columns]
+    if not all(col in df_matricula.columns for col in ['Año', 'Universidad', 'Carrera', 'Matricula']): return pd.DataFrame()
+    df_matricula.dropna(subset=['Carrera', 'Universidad'], inplace=True)
+    df_matricula['Universidad'] = df_matricula['Universidad'].astype(str).str.strip()
+    df_matricula[['Carrera_Std', 'Area']] = df_matricula['Carrera'].apply(lambda x: pd.Series(classify_career(x)))
+    df_matricula['Area'] = df_matricula['Area'].astype(str)
+    df_matricula['Matricula'] = pd.to_numeric(df_matricula['Matricula'], errors='coerce').fillna(0).astype(int)
+    df_matricula = df_matricula[df_matricula['Matricula'] > 0]
+
+    df_habilidades.columns = [col.strip().upper() for col in df_habilidades.columns]
+    df_habilidades.rename(columns={'LICENCIATURA': 'Carrera_Original', 'HABILIDADES': 'Habilidad'}, inplace=True)
+    df_habilidades.dropna(subset=['Carrera_Original'], inplace=True)
+    df_habilidades['Carrera_Std'] = df_habilidades['Carrera_Original'].apply(lambda x: classify_career(x)[0])
+
+    skill_risk_map = {
+        'Conciliaciones y Auditorías Básicas': 0.9, 'Preparación de Informes Estándar': 0.85, 'Diseño basado en plantillas': 0.8,
+        'Tareas Transaccionales': 0.9, 'Diseño Técnico (BIM)': 0.7, 'Investigación de Mercados': 0.6, 'Análisis de Datos': 0.5,
+        'Investigación Social': 0.5, 'Análisis Financiero': 0.55, 'Interpretación de Complejidades Normativas': 0.3,
+        'Pensamiento Crítico Sistémico': 0.2, 'Análisis de Escenarios Complejos': 0.25, 'Comunicación Efectiva y Persuasiva': 0.15,
+        'Ética y Juicio': 0.1, 'Resolución de Problemas No Estructurados': 0.2, 'Creatividad Original e Innovación': 0.1,
+        'Empatía Cultural': 0.15, 'Comunicación Estratégica': 0.2, 'Visión Holística': 0.2, 'Negociación': 0.15, 'Liderazgo': 0.1,
+        'Creatividad espacial': 0.15, 'Pensamiento de diseño': 0.2
     }
-    tendencia = {
-        'Derecho': 0.01, 'Contaduría': -0.015, 'Comunicación': 0.005, 'Diseño Gráfico': -0.02,
-        'Ing. Software': 0.09, 'Medicina': 0.03, 'Arquitectura': 0.00, 'Psicología': 0.02
-    }
-    riesgo = {
-        'Derecho': 0.60, 'Contaduría': 0.85, 'Comunicación': 0.50, 'Diseño Gráfico': 0.75,
-        'Ing. Software': 0.25, 'Medicina': 0.40, 'Arquitectura': 0.55, 'Psicología': 0.45
-    }
+    df_habilidades['Riesgo_Habilidad'] = df_habilidades['Habilidad'].map(skill_risk_map).fillna(0.5)
+    df_risk = df_habilidades.groupby('Carrera_Std')['Riesgo_Habilidad'].mean().reset_index()
+    df_risk.rename(columns={'Riesgo_Habilidad': 'Riesgo_IA'}, inplace=True)
 
-    for carrera in carreras:
-        for uni in universidades:
-            mat = base_matricula[carrera] / len(universidades) # Distribuir base
-            for year in years:
-                # Aplicar tendencia y ruido aleatorio
-                mat = mat * (1 + tendencia[carrera] + np.random.uniform(-0.03, 0.03)) + np.random.randint(-5, 5)
-                # Simular menor matrícula en algunas unis
-                factor_uni = 0.8 if uni in ['Ibero Puebla', 'Tec Puebla'] else 1.0
-                mat_final = int(max(mat * factor_uni, 10))
+    df_final = pd.merge(df_matricula, df_risk, on='Carrera_Std', how='left')
+    df_final['Riesgo_IA'] = df_final['Riesgo_IA'].fillna(0.5)
+    return df_final
 
-                data.append({
-                    'Año': year,
-                    'Carrera': carrera,
-                    'Universidad': uni,
-                    'Area': areas[carrera],
-                    'Matricula': mat_final,
-                    'Riesgo_IA': riesgo[carrera]
-                })
 
-    df = pd.DataFrame(data)
-    return df
-
-# --- 3. Funciones de Análisis y Visualización ---
-
-def plot_historical_trends(df, group_by='Carrera'):
-    """Genera un gráfico de líneas con las tendencias históricas."""
+# --- 4. Funciones de Visualización y Proyección ---
+def plot_historical_trends(df, group_by='Carrera_Std'):
     df_trend = df.groupby(['Año', group_by])['Matricula'].sum().reset_index()
-    fig = px.line(
-        df_trend,
-        x='Año',
-        y='Matricula',
-        color=group_by,
-        title=f'Evolución Histórica de la Matrícula por {group_by}',
-        markers=True,
-        labels={'Matricula': 'Número de Estudiantes'}
-    )
+    fig = px.line(df_trend, x='Año', y='Matricula', color=group_by, title=f'Evolución Histórica de la Matrícula por {group_by}', markers=True, labels={'Matricula': 'Número de Estudiantes', 'Carrera_Std': 'Carrera'})
     fig.update_layout(hovermode="x unified")
     return fig
 
 def plot_latest_enrollment(df):
-    """Genera un gráfico de barras con la matrícula del último año y el riesgo."""
     df_latest = df[df['Año'] == df['Año'].max()]
-    df_latest_grouped = df_latest.groupby('Carrera').agg(
-        Matricula_Total=('Matricula', 'sum'),
-        Riesgo_IA=('Riesgo_IA', 'first')
-    ).reset_index()
-
-    fig = px.bar(
-        df_latest_grouped.sort_values('Matricula_Total', ascending=False),
-        x='Carrera',
-        y='Matricula_Total',
-        color='Riesgo_IA',
-        title=f'Matrícula en {df["Año"].max()} y Nivel de Riesgo IA',
-        labels={'Matricula_Total': f'Matrícula Total ({df["Año"].max()})', 'Riesgo_IA': 'Riesgo IA (0-1)'},
-        color_continuous_scale=px.colors.sequential.Reds,
-        hover_data={'Carrera': True, 'Matricula_Total': True, 'Riesgo_IA': ':.2f'}
-    )
+    df_latest_grouped = df_latest.groupby('Carrera_Std').agg(Matricula_Total=('Matricula', 'sum'), Riesgo_IA=('Riesgo_IA', 'first')).reset_index()
+    fig = px.bar(df_latest_grouped.sort_values('Matricula_Total', ascending=False), x='Carrera_Std', y='Matricula_Total', color='Riesgo_IA', title=f'Matrícula en {df["Año"].max()} y Nivel de Riesgo IA', labels={'Matricula_Total': 'Matrícula Total', 'Riesgo_IA': 'Riesgo IA (0-1)', 'Carrera_Std': 'Carrera'}, color_continuous_scale=px.colors.sequential.Reds, hover_data={'Riesgo_IA': ':.2f'})
     fig.update_layout(xaxis_tickangle=-45)
     return fig
 
 def plot_risk_vs_growth(df):
-    """Genera un gráfico de dispersión: Riesgo IA vs Crecimiento."""
-    df_agg = df.groupby('Carrera').agg(
-        Matricula_Inicio=('Matricula', lambda x: df.loc[x.index[df.loc[x.index, 'Año'] == df['Año'].min()], 'Matricula'].sum()),
-        Matricula_Fin=('Matricula', lambda x: df.loc[x.index[df.loc[x.index, 'Año'] == df['Año'].max()], 'Matricula'].sum()),
-        Riesgo_IA=('Riesgo_IA', 'first')
-    ).reset_index()
-
-    # Calcular Tasa de Crecimiento Anual Compuesta (CAGR)
-    num_years = df['Año'].max() - df['Año'].min()
-    df_agg['CAGR'] = ((df_agg['Matricula_Fin'] / df_agg['Matricula_Inicio'])**(1/num_years) - 1) * 100
-    df_agg = df_agg[df_agg['Matricula_Inicio'] > 0] # Evitar división por cero
-
-    fig = px.scatter(
-        df_agg,
-        x='Riesgo_IA',
-        y='CAGR',
-        size='Matricula_Fin',
-        color='Carrera',
-        title='Riesgo IA vs. Crecimiento Histórico (CAGR %)',
-        labels={'Riesgo_IA': 'Nivel de Riesgo IA (0=Bajo, 1=Alto)', 'CAGR': 'Crecimiento Anual (%)', 'Matricula_Fin': 'Matrícula Actual'},
-        hover_name='Carrera',
-        size_max=60
-    )
+    if df['Año'].nunique() < 2: return go.Figure(layout_title_text="Se necesita más de un año de datos para este gráfico.")
+    start_year, end_year = df['Año'].min(), df['Año'].max()
+    df_start = df[df['Año'] == start_year].groupby('Carrera_Std')['Matricula'].sum().reset_index().rename(columns={'Matricula': 'Matricula_Inicio'})
+    df_end = df[df['Año'] == end_year].groupby('Carrera_Std')['Matricula'].sum().reset_index().rename(columns={'Matricula': 'Matricula_Fin'})
+    df_agg = pd.merge(df_start, df_end, on='Carrera_Std')
+    df_risk_unique = df[['Carrera_Std', 'Riesgo_IA']].drop_duplicates()
+    df_agg = pd.merge(df_agg, df_risk_unique, on='Carrera_Std')
+    num_years = end_year - start_year
+    df_agg['CAGR'] = ((df_agg['Matricula_Fin'] / df_agg['Matricula_Inicio'])**(1/num_years) - 1) * 100 if num_years > 0 else 0
+    df_agg = df_agg[(df_agg['Matricula_Inicio'] > 0) & (df_agg['Matricula_Fin'] > 0)]
+    fig = px.scatter(df_agg, x='Riesgo_IA', y='CAGR', size='Matricula_Fin', color='Carrera_Std', title='Riesgo IA vs. Crecimiento Histórico (CAGR %)', labels={'Riesgo_IA': 'Nivel de Riesgo IA', 'CAGR': 'Crecimiento Anual Promedio (%)', 'Matricula_Fin': 'Matrícula Actual', 'Carrera_Std': 'Carrera'}, hover_name='Carrera_Std', size_max=60)
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
-    fig.add_vline(x=df_agg['Riesgo_IA'].mean(), line_dash="dash", line_color="red", annotation_text="Riesgo Promedio")
+    if not df_agg.empty: fig.add_vline(x=df_agg['Riesgo_IA'].mean(), line_dash="dash", line_color="red", annotation_text="Riesgo Promedio")
     return fig
 
 def generate_projection(df):
-    """Genera una proyección SIMPLIFICADA a 10 años."""
+    if df['Año'].nunique() < 2: return pd.DataFrame()
     proyeccion_list = []
-    df_riesgo = df[['Carrera', 'Riesgo_IA']].drop_duplicates().set_index('Carrera')
-    df_grouped = df.groupby(['Año', 'Carrera'])['Matricula'].sum().reset_index()
-
-    for carrera in df_grouped['Carrera'].unique():
-        hist_data = df_grouped[df_grouped['Carrera'] == carrera]
-        if len(hist_data) < 2: continue # Necesita al menos 2 puntos
-
-        # Regresión lineal simple para la tendencia
+    df_riesgo = df[['Carrera_Std', 'Riesgo_IA']].drop_duplicates().set_index('Carrera_Std')
+    df_grouped = df.groupby(['Año', 'Carrera_Std'])['Matricula'].sum().reset_index()
+    for carrera in df_grouped['Carrera_Std'].unique():
+        hist_data = df_grouped[df_grouped['Carrera_Std'] == carrera]
+        if len(hist_data) < 2: continue
         z = np.polyfit(hist_data['Año'], hist_data['Matricula'], 1)
-        tendencia_anual = z[0]
-
-        matricula_actual = hist_data['Matricula'].iloc[-1]
+        tendencia_anual, matricula_actual = z[0], hist_data['Matricula'].iloc[-1]
         riesgo = df_riesgo.loc[carrera, 'Riesgo_IA']
-
-        # Factor de ajuste basado en riesgo (más riesgo = más frena la tendencia)
-        # Si riesgo es alto (0.85), factor es bajo (0.15). Si riesgo es bajo (0.25), factor es alto (0.75)
-        # Se aplica un factor 'amortiguador' (0.5) para no ser tan extremos
         factor_ia = (1 - riesgo) * 0.5 + 0.5
-
-        # Proyección: (Matricula + Tendencia * Años) * Factor IA
-        # Si la tendencia es negativa, el factor IA la hace 'más negativa'
-        # Usamos una forma más estable: (Matricula_Actual + Tendencia_Ajustada * Años)
         tendencia_ajustada = tendencia_anual * factor_ia if tendencia_anual > 0 else tendencia_anual * (1 + riesgo * 0.5)
+        matricula_proyectada = max(0, int(matricula_actual + (tendencia_ajustada * 10)))
+        proyeccion_list.append({'Carrera': carrera, f'Matrícula {df["Año"].max()}': matricula_actual, 'Riesgo IA': riesgo, 'Tendencia Hist. (Alumnos/Año)': round(tendencia_anual, 1), 'Matrícula Estimada 2035': matricula_proyectada, 'Cambio Estimado (%)': round(((matricula_proyectada / matricula_actual) - 1) * 100, 1) if matricula_actual > 0 else 0})
+    return pd.DataFrame(proyeccion_list).sort_values('Cambio Estimado (%)')
 
-        matricula_proyectada = matricula_actual + (tendencia_ajustada * 11) # 2025 a 2035 son 11 años
-        matricula_proyectada = max(0, int(matricula_proyectada))
-
-        proyeccion_list.append({
-            'Carrera': carrera,
-            f'Matrícula {df["Año"].max()}': matricula_actual,
-            'Riesgo IA': riesgo,
-            'Tendencia Hist. (Alumnos/Año)': round(tendencia_anual, 1),
-            'Matrícula Estimada 2035': matricula_proyectada,
-            'Cambio Estimado (%)': round(((matricula_proyectada / matricula_actual) - 1) * 100, 1) if matricula_actual > 0 else 0
-        })
-
-    df_proyeccion = pd.DataFrame(proyeccion_list).sort_values('Cambio Estimado (%)')
-    return df_proyeccion
-
-
-# --- 4. Carga de Datos y Aplicación ---
-df_data = load_data()
-
-# --- 5. Barra Lateral de Filtros ---
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Escudo_del_Estado_de_Puebla.svg/1200px-Escudo_del_Estado_de_Puebla.svg.png", width=100)
-st.sidebar.title("Panel de Control ⚙️")
-st.sidebar.markdown("Filtra los datos para tu análisis:")
-
-# Filtro de Años
-min_year, max_year = int(df_data['Año'].min()), int(df_data['Año'].max())
-selected_years = st.sidebar.slider(
-    'Selecciona Rango de Años:',
-    min_value=min_year,
-    max_value=max_year,
-    value=(min_year, max_year)
-)
-
-# Filtro de Universidades
-all_universities = df_data['Universidad'].unique()
-selected_universities = st.sidebar.multiselect(
-    'Selecciona Universidad(es):',
-    options=all_universities,
-    default=all_universities
-)
-
-# Filtro de Áreas
-all_areas = df_data['Area'].unique()
-selected_areas = st.sidebar.multiselect(
-    'Selecciona Área(s) de Conocimiento:',
-    options=all_areas,
-    default=all_areas
-)
-
-# Filtro de Carreras (dependiente de las áreas seleccionadas)
-carreras_in_areas = df_data[df_data['Area'].isin(selected_areas)]['Carrera'].unique()
-selected_carreras = st.sidebar.multiselect(
-    'Selecciona Carrera(s):',
-    options=carreras_in_areas,
-    default=carreras_in_areas
-)
-
-# Aplicar filtros
-df_filtered = df_data[
-    (df_data['Año'] >= selected_years[0]) &
-    (df_data['Año'] <= selected_years[1]) &
-    (df_data['Universidad'].isin(selected_universities)) &
-    (df_data['Area'].isin(selected_areas)) &
-    (df_data['Carrera'].isin(selected_carreras))
-].copy()
-
-# --- 6. Cuerpo Principal de la Aplicación ---
-st.title("🎓🤖 Futuro Laboral Puebla: IA vs Carreras Universitarias")
-st.markdown(f"""
-Bienvenido al tablero de análisis del impacto de la Inteligencia Artificial en las carreras universitarias del estado de Puebla.
-Explora las tendencias históricas (`{selected_years[0]}-{selected_years[1]}`) y las proyecciones hacia 2035.
-**Recuerda: Los datos actuales son *simulados* y las proyecciones son *ejemplificativas*.**
+# --- 5. Flujo Principal de la Aplicación ---
+st.title("🎓🤖 Futuro Laboral Puebla: Análisis de Datos")
+st.markdown("""
+Análisis del impacto de la IA en carreras universitarias de Puebla. Según el Foro Económico Mundial, se proyecta una **disrupción del 40% de las habilidades laborales**, lo que exige una constante adaptación.
 """)
 
-# Mostrar KPIs si hay datos
-if not df_filtered.empty:
-    total_students_latest = df_filtered[df_filtered['Año'] == selected_years[1]]['Matricula'].sum()
-    num_carreras = len(df_filtered['Carrera'].unique())
-    avg_risk = df_filtered.drop_duplicates(subset=['Carrera'])['Riesgo_IA'].mean()
+HABILIDADES_FILE = "LICENCIATURAS - HABILIDADES.xlsx - Hoja1.csv"
+MATRICULA_FILE = "matricula_puebla_tidy.csv"
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Estudiantes (Últ. Año)", f"{total_students_latest:,}")
-    col2.metric("Carreras Analizadas", f"{num_carreras}")
-    col3.metric("Riesgo IA Promedio", f"{avg_risk:.2f}", help="Promedio del riesgo IA (0=Bajo, 1=Alto) de las carreras seleccionadas.")
+df_data = load_and_process_data(MATRICULA_FILE, HABILIDADES_FILE)
+
+if not df_data.empty:
+    st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Escudo_del_Estado_de_Puebla.svg/1200px-Escudo_del_Estado_de_Puebla.svg.png", width=100)
+    st.sidebar.title("Panel de Control ⚙️")
+    min_year, max_year = int(df_data['Año'].min()), int(df_data['Año'].max())
+    if min_year >= max_year:
+        st.sidebar.info(f"Mostrando datos para el único año disponible: {min_year}")
+        selected_years = (min_year, max_year)
+    else:
+        selected_years = st.sidebar.slider('Rango de Años:', min_year, max_year, (min_year, max_year))
+    
+    all_universities = sorted(df_data['Universidad'].unique())
+    selected_universities = st.sidebar.multiselect('Universidad(es):', all_universities, default=all_universities)
+    all_areas = sorted(df_data['Area'].unique())
+    selected_areas = st.sidebar.multiselect('Área(s) de Conocimiento:', all_areas, default=all_areas)
+    carreras_in_areas = sorted(df_data[df_data['Area'].isin(selected_areas)]['Carrera_Std'].unique())
+    selected_carreras = st.sidebar.multiselect('Carrera(s) Estandarizadas:', carreras_in_areas, default=carreras_in_areas)
+
+    df_filtered = df_data[(df_data['Año'] >= selected_years[0]) & (df_data['Año'] <= selected_years[1]) & (df_data['Universidad'].isin(selected_universities)) & (df_data['Area'].isin(selected_areas)) & (df_data['Carrera_Std'].isin(selected_carreras))].copy()
+    
+    if not df_filtered.empty:
+        total_students_latest = int(df_filtered[df_filtered['Año'] == selected_years[1]]['Matricula'].sum()) if selected_years[1] in df_filtered['Año'].values else 0
+        num_carreras = len(df_filtered['Carrera_Std'].unique())
+        avg_risk = df_filtered.drop_duplicates(subset=['Carrera_Std'])['Riesgo_IA'].mean()
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Estudiantes (Últ. Año)", f"{total_students_latest:,}")
+        col2.metric("Carreras Analizadas", f"{num_carreras}")
+        col3.metric("Riesgo IA Promedio", f"{avg_risk:.2f}")
+
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📈 Tendencias", "📊 Snapshot Actual", "🗺️ Riesgo vs Crecimiento", "🔮 Proyecciones", "📊 Estadísticas", "📄 Datos Detallados"])
+        
+        with tab1:
+            st.header("Evolución de la Matrícula")
+            if min_year < max_year:
+                group_option = st.radio("Agrupar por:", ('Carrera_Std', 'Area', 'Universidad'), horizontal=True, key='radio_trends')
+                st.plotly_chart(plot_historical_trends(df_filtered, group_by=group_option), use_container_width=True)
+            else:
+                st.info("Se necesita más de un año de datos para mostrar tendencias.")
+        
+        with tab2:
+            st.header(f"Panorama Actual ({selected_years[1]}) y Riesgo IA")
+            st.plotly_chart(plot_latest_enrollment(df_filtered), use_container_width=True)
+            st.markdown("---")
+            st.subheader("Insights Clave por Área")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info("#### Económico-Administrativas\nEl rol evoluciona de transaccional a **asesor estratégico**. La IA automatiza tareas rutinarias, demandando profesionales que interpreten datos complejos y asesoren a la alta dirección. El pensamiento crítico y la ética son cruciales.")
+            with col2:
+                st.success("#### Humanidades y Ciencias Sociales\nSon cada vez más valoradas para roles de **ética de la IA, análisis cultural y comunicación estratégica**. Aportan el pensamiento crítico y la visión holística que la IA no posee para entender y mitigar el impacto social de la tecnología.")
+
+        with tab3:
+            st.header("Mapa de Riesgo vs. Crecimiento Histórico")
+            if min_year < max_year:
+                st.plotly_chart(plot_risk_vs_growth(df_filtered), use_container_width=True)
+                st.markdown("""
+                **Interpretación de Cuadrantes:**
+                - **Superior Izquierda (Zona Ideal):** Bajo riesgo y alto crecimiento. Carreras con futuro prometedor.
+                - **Inferior Derecha (Zona de Alerta):** Alto riesgo y bajo crecimiento/decrecimiento. Requieren una reinvención urgente.
+                - **Superior Derecha (Zona de Adaptación):** Alto riesgo, pero aún con crecimiento. Deben adaptar sus planes de estudio para incorporar la IA como herramienta.
+                - **Inferior Izquierda (Zona de Observación):** Bajo riesgo, pero con decrecimiento. Su declive puede deberse a otros factores del mercado.
+                """)
+            else:
+                st.info("Se necesita más de un año de datos para calcular el crecimiento.")
+        
+        with tab4:
+            st.header("Proyecciones Simplificadas hacia 2035")
+            st.warning("⚠️ **Modelo Ilustrativo:** Estas proyecciones se basan en tendencias lineales ajustadas por el factor de riesgo IA. No son predicciones precisas.")
+            if min_year < max_year:
+                df_proj = generate_projection(df_filtered)
+                st.dataframe(df_proj.style.format({'Riesgo IA': '{:.2f}', 'Tendencia Hist. (Alumnos/Año)': '{:+.1f}', 'Cambio Estimado (%)': '{:+.1f}%'}).background_gradient(cmap='Reds', subset=['Riesgo IA']).background_gradient(cmap='RdYlGn', subset=['Cambio Estimado (%)'], vmin=-100, vmax=100), use_container_width=True)
+            else:
+                st.info("Se necesita más de un año de datos para generar proyecciones.")
+        
+        with tab5:
+            st.header("Estadísticas Descriptivas y Distribuciones")
+            st.markdown("Analiza las características numéricas de los datos filtrados.")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Resumen Estadístico")
+                stat_selection = st.selectbox("Elegir variable para describir:", ['Matricula', 'Riesgo_IA'])
+                st.dataframe(df_filtered[stat_selection].describe())
+            
+            with col2:
+                st.subheader("Distribución del Riesgo IA")
+                df_unique_risk = df_filtered.drop_duplicates(subset=['Carrera_Std'])
+                fig_hist_risk = px.histogram(df_unique_risk, x='Riesgo_IA', nbins=20, title="Frecuencia de Niveles de Riesgo")
+                st.plotly_chart(fig_hist_risk, use_container_width=True)
+                st.info("Una concentración a la derecha (valores > 0.6) sugiere un panorama de mayor disrupción para el conjunto de carreras seleccionado.")
+
+            st.markdown("---")
+            st.subheader("Distribución de la Matrícula")
+            fig_hist_mat = px.histogram(df_filtered, x='Matricula', nbins=50, title="Frecuencia del Tamaño de Matrículas")
+            st.plotly_chart(fig_hist_mat, use_container_width=True)
+            st.info("Este histograma muestra si la mayoría de las entradas de matrícula son pequeñas o grandes. Una cola larga a la derecha indica la presencia de carreras con matrículas muy altas en comparación con el resto.")
+
+        with tab6:
+            st.header("Explorador de Datos Detallados")
+            st.info("Aquí puedes ver la tabla de datos completa con las clasificaciones y filtros aplicados.")
+            st.dataframe(df_filtered[['Año', 'Universidad', 'Carrera', 'Carrera_Std', 'Area', 'Matricula', 'Riesgo_IA']])
+            csv = df_filtered.to_csv(index=False).encode('utf-8')
+            st.download_button(label="📥 Descargar Datos Filtrados (CSV)", data=csv, file_name='matricula_puebla_filtrada.csv', mime='text/csv')
+    else:
+        st.warning("No se encontraron datos para los filtros seleccionados.")
 else:
-    st.warning("No hay datos para los filtros seleccionados. Por favor, ajusta tu selección.")
-
-
-# --- 7. Pestañas de Visualización ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📈 Tendencias Históricas",
-    "📊 Snapshot Actual y Riesgo",
-    "🗺️ Riesgo vs Crecimiento",
-    "🔮 Proyecciones 2035",
-    "📄 Datos Detallados"
-])
-
-with tab1:
-    st.header("Evolución de la Matrícula")
-    if not df_filtered.empty:
-        group_option = st.radio("Agrupar por:", ('Carrera', 'Area', 'Universidad'), horizontal=True)
-        st.plotly_chart(plot_historical_trends(df_filtered, group_by=group_option), use_container_width=True)
-    else:
-        st.info("Selecciona datos para ver las tendencias.")
-
-with tab2:
-    st.header(f"Panorama Actual ({selected_years[1]}) y Riesgo IA")
-    if not df_filtered.empty:
-        st.plotly_chart(plot_latest_enrollment(df_filtered), use_container_width=True)
-        st.markdown("""
-        Este gráfico muestra la matrícula total por carrera en el último año seleccionado.
-        El color indica el **nivel de riesgo asignado a cada carrera** (rojo = más alto).
-        Carreras con barras altas y color rojo intenso podrían ser focos de atención.
-        """)
-    else:
-        st.info("Selecciona datos para ver el snapshot.")
-
-with tab3:
-    st.header("Mapa de Riesgo vs. Crecimiento Histórico")
-    if not df_filtered.empty and len(df_filtered['Año'].unique()) > 1:
-        st.plotly_chart(plot_risk_vs_growth(df_filtered), use_container_width=True)
-        st.markdown("""
-        Este gráfico posiciona cada carrera según dos ejes:
-        * **Eje X (Riesgo IA):** Más a la derecha, mayor riesgo de automatización/transformación.
-        * **Eje Y (Crecimiento %):** Más arriba, mayor crecimiento histórico de matrícula.
-        * **Tamaño de la burbuja:** Matrícula actual.
-
-        **Cuadrantes clave:**
-        * **Superior Izquierda:** Bajo riesgo, alto crecimiento (Ideal).
-        * **Inferior Derecha:** Alto riesgo, bajo crecimiento/decrecimiento (¡Alerta!).
-        * **Superior Derecha:** Alto riesgo, pero aún con crecimiento (Requiere adaptación).
-        * **Inferior Izquierda:** Bajo riesgo, pero con decrecimiento (Otras causas?).
-        """)
-    else:
-        st.info("Selecciona datos (con más de un año) para ver el mapa de riesgo.")
-
-with tab4:
-    st.header("Proyecciones Simplificadas hacia 2035")
-    st.warning("⚠️ **¡Modelo Simplificado!** Estas proyecciones son *ilustrativas* y se basan en tendencias lineales ajustadas por un factor de riesgo IA. **NO son predicciones precisas** y no consideran factores complejos como cambios curriculares, políticas públicas o nuevas tecnologías.")
-    if not df_filtered.empty and len(df_filtered['Año'].unique()) > 1:
-        df_proj = generate_projection(df_filtered)
-        st.dataframe(df_proj.style.format({
-            'Riesgo IA': '{:.2f}',
-            'Tendencia Hist. (Alumnos/Año)': '{:+.1f}',
-            'Cambio Estimado (%)': '{:+.1f}%'
-        }).background_gradient(cmap='Reds', subset=['Riesgo IA'])
-          .background_gradient(cmap='RdYlGn', subset=['Cambio Estimado (%)'], vmin=-100, vmax=100)
-          .background_gradient(cmap='coolwarm', subset=['Tendencia Hist. (Alumnos/Año)']),
-          use_container_width=True
-        )
-    else:
-        st.info("Selecciona datos (con más de un año) para ver las proyecciones.")
-
-
-with tab5:
-    st.header("Explorador de Datos Detallados")
-    if not df_filtered.empty:
-        st.dataframe(df_filtered)
-        # Opción para descargar datos
-        @st.cache_data
-        def convert_df_to_csv(df):
-           return df.to_csv(index=False).encode('utf-8')
-
-        csv = convert_df_to_csv(df_filtered)
-        st.download_button(
-           label="📥 Descargar Datos Filtrados (CSV)",
-           data=csv,
-           file_name='matricula_puebla_filtrada.csv',
-           mime='text/csv',
-        )
-    else:
-        st.info("Selecciona datos para ver la tabla.")
-
-# --- 8. Pie de Página ---
-st.sidebar.markdown("---")
-st.sidebar.info("""
-    **Proyecto Estadístico - v0.2**
-    Análisis del Futuro Laboral en Puebla.
-    *Basado en datos simulados.*
-    **(Necesita conexión a BBDD real)**
-""")
+    st.error("No se pudieron cargar o procesar los archivos de datos. Verifica los nombres y el formato de los archivos CSV.")
