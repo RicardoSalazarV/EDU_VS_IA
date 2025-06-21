@@ -252,6 +252,9 @@ if not df_data.empty and not df_tareas.empty:
                 st.subheader("Evolución Histórica de la Matrícula")
                 group_option = st.radio("Agrupar tendencias por:", ('Carrera_Std', 'Area', 'Universidad'), horizontal=True, key='radio_trends')
                 st.plotly_chart(plot_historical_trends(df_filtered, group_by=group_option), use_container_width=True)
+                
+
+            
 
         # --- PESTAÑA 2: RIESGO VS. CRECIMIENTO ---
         with tab2:
@@ -349,7 +352,7 @@ if not df_data.empty and not df_tareas.empty:
                 df_univ_risk = df_latest_year.groupby('Universidad').agg(Total_Matricula_x_Riesgo=('Matricula_x_Riesgo', 'sum'), Total_Matricula=('Matricula', 'sum')).reset_index()
                 df_univ_risk['Riesgo_Cartera'] = df_univ_risk['Total_Matricula_x_Riesgo'] / df_univ_risk['Total_Matricula']
                 fig_univ_risk = px.bar(df_univ_risk.sort_values('Riesgo_Cartera', ascending=False), x='Riesgo_Cartera', y='Universidad',
-                                     orientation='h', color='Riesgo_Cartera', color_continuous_scale=px.colors.sequential.Reds_r,
+                                     orientation='h', color='Riesgo_Cartera', color_continuous_scale=px.colors.sequential.Reds,
                                      title=f"Riesgo IA Ponderado de la Cartera Universitaria ({df_latest_year['Año'].max()})",
                                      labels={'Riesgo_Cartera': 'Riesgo IA Ponderado de Cartera', 'Universidad': ''})
                 fig_univ_risk.update_layout(yaxis_title="")
